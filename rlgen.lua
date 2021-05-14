@@ -11,7 +11,8 @@ right = 4
 minRoomSize = 6
 maxRoomSize = 16
 
-corridorLength = 5
+minCorridorLength = 4
+maxCorridorLenght = 8
 
 rooms = {}
 corridors = {}
@@ -41,7 +42,7 @@ function createRandomRoom()
   return room
 end
 
-function createCorridor(x, y, lenght, direction)
+function createCorridor(x, y, length, direction)
   local corridor = {}
   corridor.start = {}
   corridor.dest = {}
@@ -50,24 +51,24 @@ function createCorridor(x, y, lenght, direction)
   corridor.start.y = y
   
   if direction == up then
-    y = y - lenght
+    y = y - length
     corridor.dest.x = x
     corridor.dest.y = y
   elseif direction == down then 
     corridor.dest.x = x
-    corridor.dest.y = y + lenght
+    corridor.dest.y = y + length
   elseif direction == left then
-    x = x - lenght
+    x = x - length
     corridor.dest.x = x
     corridor.dest.y = y
   elseif direction == right then
-    corridor.dest.x = x + lenght
+    corridor.dest.x = x + length
     corridor.dest.y = y
   end
   
   corridor.x = x
   corridor.y = y
-  corridor.lenght = lenght
+  corridor.length = length
   corridor.direction = direction
   
   return corridor
@@ -85,7 +86,7 @@ function roomOverlaps(room1, room2)
   return room1.x <= room2.x+room2.w and room1.x+room1.w >= room2.x and room1.y <= room2.y+room2.h and room1.y+room1.h >= room2.y
 end
 
-function selectRandomWallTileForCorridor(room, corridorLenght)
+function selectRandomWallTileForCorridor(room, corridorLength)
   local tiles = {}
   for y = room.y, room.y + room.h do
     for x = room.x, room.x + room.w do
@@ -181,9 +182,9 @@ function createNewRoomAtCorridorDest(corridor)
 end
 
 function validateRoom(room)
-  if room.y + room.h > level.h then return false
-  elseif room.x + room.w > level.w then return false
-  elseif room.y < 1 or room.x < 1 then return false
+  if room.y + room.h >= level.h then return false
+  elseif room.x + room.w >= level.w then return false
+  elseif room.y <= 1 or room.x <= 1 then return false
   end
   
   for i = 1, #rooms do
@@ -206,10 +207,12 @@ function cutRooms()
           tile = "#"
         else
           tile = "."
+          tile = i
         end
         
         if x == room.doorTile.x and y == room.doorTile.y then
           tile = "."
+          tile = i
         end
         
         if level[y] ~= nil and level[y][x] ~= nil then -- FIX SO THIS NOT NEEDED
@@ -227,21 +230,25 @@ function cutCorridors()
     local tile
 
     if corridor.direction == up or corridor.direction == down then
-      for y = corridor.y, corridor.y + corridor.lenght do
+      for y = corridor.y, corridor.y + corridor.length do
         tile = "."
         if y == corridor.start.y then tile = "+"        --debug
         elseif y == corridor.dest.y then tile = "-" end --debug
-          
-        level[y][corridor.x] = tile
+        
+        if level[y] ~= nil and level[y][corridor.x] ~= nil then -- FIX SO THIS NOT NEEDED
+          level[y][corridor.x] = tile
+        end
       end
     end
     if corridor.direction == left or corridor.direction == right then
-      for x = corridor.x, corridor.x + corridor.lenght do
+      for x = corridor.x, corridor.x + corridor.length do
         tile = "."
         if x == corridor.start.x then tile = "+"        --debug
         elseif x == corridor.dest.x then tile = "-" end --debug
         
-        level[corridor.y][x] = tile
+        if level[corridor.y] ~= nil and level[corridor.y][x] ~= nil then -- FIX SO THIS NOT NEEDED
+          level[corridor.y][x] = tile
+        end
       end
     end    
     
@@ -279,27 +286,34 @@ function run()
     testRoom = createRandomRoom()
   end
   
-  testRoom.doorTile = selectRandomWallTileForCorridor(testRoom, corridorLength)
+  local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
+  testRoom.doorTile = selectRandomWallTileForCorridor(testRoom, 3)
   local testCorridor = createCorridor(testRoom.doorTile.x, testRoom.doorTile.y, corridorLength, testRoom.doorTile.direction)
   
   table.insert(rooms, testRoom)
   table.insert(corridors, testCorridor)
   
-  
+  local tries = 100
   local testRoom2 = createNewRoomAtCorridorDest(testCorridor)
   while not validateRoom(testRoom2) do
     testRoom2 = createNewRoomAtCorridorDest(testCorridor)
+    tries = tries - 1
+    if tries == 0 then break end
   end
   
-  testRoom2.doorTile = selectRandomWallTileForCorridor(testRoom2, corridorLength)
-  local testCorridor2 = createCorridor(testRoom2.doorTile.x, testRoom2.doorTile.y, corridorLength, testRoom2.doorTile.direction)
+  local corridorLength2 = math.random(minCorridorLength, maxCorridorLenght)
+  testRoom2.doorTile = selectRandomWallTileForCorridor(testRoom2, corridorLength2)
+  local testCorridor2 = createCorridor(testRoom2.doorTile.x, testRoom2.doorTile.y, corridorLength2, testRoom2.doorTile.direction)
   
   table.insert(rooms, testRoom2)
   table.insert(corridors, testCorridor2)
   
+  tries = 100
   local testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
   while not validateRoom(testRoom3) do
     testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
+    tries = tries - 1
+    if tries == 0 then break end
   end
   
     table.insert(rooms, testRoom3)
