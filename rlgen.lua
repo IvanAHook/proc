@@ -86,12 +86,12 @@ function roomOverlaps(room1, room2)
   return room1.x <= room2.x+room2.w and room1.x+room1.w >= room2.x and room1.y <= room2.y+room2.h and room1.y+room1.h >= room2.y
 end
 
-function selectRandomWallTileForCorridor(room, corridorLength)
+function getRoomWallTiles(room)
   local tiles = {}
   for y = room.y, room.y + room.h do
     for x = room.x, room.x + room.w do
       
-      -- dont want the dor to be in any of the rooms corners
+      -- dont want the door to be in any of the rooms corners
       if y == room.y and x == room.x
       or y == room.y and x == room.x + room.w
       or y == room.y + room.h and x == room.x
@@ -108,11 +108,15 @@ function selectRandomWallTileForCorridor(room, corridorLength)
       end
       ::continue::
     end
-    
   end
-  
+  return tiles
+end
+
+function selectRandomWallTileForCorridor(room, wallTiles, corridorLength)
+  local tiles = wallTiles
   local considerTile
   local result = false
+  
   while not result do
     --check if there is room in this direction
     --this thing has a bug, but what is it?
@@ -153,7 +157,7 @@ function selectRandomWallTileForCorridor(room, corridorLength)
     end
   end
   
-  return considerTile
+  return considerTile, tiles
 end
 
 function createNewRoomAtCorridorDest(corridor)
@@ -187,14 +191,18 @@ function validateRoom(room)
   elseif room.y <= 1 or room.x <= 1 then return false
   end
   
+  local result = true
   for i = 1, #rooms do
+    print("num rooms " .. #rooms)
     if roomOverlaps(room, rooms[i]) then
+      print("room " .. #rooms + 1 .. " overlaped with room: " .. i)
       result = false
       break
     end
   end
   
-  return true
+  print("room: " .. #rooms + 1 .. " succeded")
+  return result
 end
 
 function cutRooms()
@@ -231,7 +239,7 @@ function cutCorridors()
 
     if corridor.direction == up or corridor.direction == down then
       for y = corridor.y, corridor.y + corridor.length do
-        tile = "."
+        tile = "*"
         if y == corridor.start.y then tile = "+"        --debug
         elseif y == corridor.dest.y then tile = "-" end --debug
         
@@ -242,7 +250,7 @@ function cutCorridors()
     end
     if corridor.direction == left or corridor.direction == right then
       for x = corridor.x, corridor.x + corridor.length do
-        tile = "."
+        tile = "*"
         if x == corridor.start.x then tile = "+"        --debug
         elseif x == corridor.dest.x then tile = "-" end --debug
         
@@ -259,7 +267,7 @@ function fillLevel()
   for y = 1, level.h do
     level[y] = {}
     for x = 1, level.w do
-      tile = "#"
+      tile = "."
       level[y][x] = tile
     end
     
@@ -280,43 +288,59 @@ function writeLevelToFile()
 end
 
 function run()
+  
   -- create first room
   local testRoom = createRandomRoom()
   while not validateRoom(testRoom) do
     testRoom = createRandomRoom()
   end
   
-  local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
-  testRoom.doorTile = selectRandomWallTileForCorridor(testRoom, 3)
-  local testCorridor = createCorridor(testRoom.doorTile.x, testRoom.doorTile.y, corridorLength, testRoom.doorTile.direction)
-  
   table.insert(rooms, testRoom)
-  table.insert(corridors, testCorridor)
   
   local tries = 100
-  local testRoom2 = createNewRoomAtCorridorDest(testCorridor)
-  while not validateRoom(testRoom2) do
-    testRoom2 = createNewRoomAtCorridorDest(testCorridor)
-    tries = tries - 1
+  local nextRoom
+  local testCorridor
+  --while not validateRoom(testRoom2) do
+  while tries > 0 do
+    local currentRoom = rooms[#rooms]
+    local remainingWallTiles = {}
+    
+    local roomWallTiles = getRoomWallTiles(currentRoom)
+    local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
+    currentRoom.doorTile, roomWallTiles = selectRandomWallTileForCorridor(currentRoom, roomWallTiles, corridorLength)
+    testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
+    
+    nextRoom = createNewRoomAtCorridorDest(testCorridor)
+    if not validateRoom(nextRoom) then
+      print("fail " .. tries)
+      tries = tries - 1
+    else
+      table.insert(corridors, testCorridor)
+      table.insert(rooms, nextRoom)
+      tries = 100
+    --  do the same for corridor
+    end
+    --tries = tries - 1
+    if #rooms >= 9 then break end
     if tries == 0 then break end
   end
   
-  local corridorLength2 = math.random(minCorridorLength, maxCorridorLenght)
-  testRoom2.doorTile = selectRandomWallTileForCorridor(testRoom2, corridorLength2)
-  local testCorridor2 = createCorridor(testRoom2.doorTile.x, testRoom2.doorTile.y, corridorLength2, testRoom2.doorTile.direction)
+--  local corridorLength2 = math.random(minCorridorLength, maxCorridorLenght)
+--  testRoom2.doorTile = selectRandomWallTileForCorridor(testRoom2, corridorLength2)
+--  local testCorridor2 = createCorridor(testRoom2.doorTile.x, testRoom2.doorTile.y, corridorLength2, testRoom2.doorTile.direction)
   
-  table.insert(rooms, testRoom2)
-  table.insert(corridors, testCorridor2)
+  --table.insert(rooms, testRoom2)
+  --table.insert(corridors, testCorridor2)
   
-  tries = 100
-  local testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
-  while not validateRoom(testRoom3) do
-    testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
-    tries = tries - 1
-    if tries == 0 then break end
-  end
+--  tries = 100
+--  local testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
+--  while not validateRoom(testRoom3) do
+--    testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
+--    tries = tries - 1
+--    if tries == 0 then break end
+--  end
   
-    table.insert(rooms, testRoom3)
+--  table.insert(rooms, testRoom3)
   
   fillLevel()
   --wallTile = selectRandomWallTile(rooms[1])
