@@ -1,6 +1,6 @@
 level = {}
-level.w = 64
-level.h = 32
+level.w = 128
+level.h = 64
 --level.rooms = ""
 
 up = 1
@@ -131,23 +131,23 @@ function selectRandomWallTileForCorridor(room, wallTiles, corridorLength)
     if considerTile.y == room.y + room.h then direction = down end
     if considerTile.x == room.x then direction = left end
     if considerTile.x == room.x + room.w then direction = right end
-    
+
     considerTile.direction = direction
     
     --create a test room to check for collision where we want to put the corridor, MAKE THIS GENERIC FOR USE WITH ROOMS AS WELL AS CORRIDORS
+    local testArea
     if direction == up then
-      local testArea = createRoom(considerTile.x-1, considerTile.y-corridorLength, 3, corridorLength)
-      if validateRoom(testArea) then result = true end
+      testArea = createRoom(considerTile.x-1, considerTile.y-corridorLength, 3, corridorLength)
     elseif direction == down then
-      local testArea = createRoom(considerTile.x-1, considerTile.y, 3, corridorLength)
-      if validateRoom(testArea) then result = true end
+      testArea = createRoom(considerTile.x-1, considerTile.y, 3, corridorLength)
     elseif direction == left then
-      local testArea = createRoom(considerTile.x-corridorLength, considerTile.y-1, 3, corridorLength)
-      if validateRoom(testArea) then result = true end
+      testArea = createRoom(considerTile.x-corridorLength, considerTile.y-1, 3, corridorLength)
     elseif direction == right then
-      local testArea = createRoom(considerTile.x, considerTile.y-1, 3, corridorLength)
-      if validateRoom(testArea) then result = true end
+      testArea = createRoom(considerTile.x, considerTile.y-1, 3, corridorLength)
     end
+    
+    result = true--validateRoom(testArea)
+    --if validateRoom(testArea) then result = true end    
     
     if #tiles == 0 then
       print("Found no tile, why?")
@@ -193,7 +193,6 @@ function validateRoom(room)
   
   local result = true
   for i = 1, #rooms do
-    print("num rooms " .. #rooms)
     if roomOverlaps(room, rooms[i]) then
       print("room " .. #rooms + 1 .. " overlaped with room: " .. i)
       result = false
@@ -201,7 +200,12 @@ function validateRoom(room)
     end
   end
   
-  print("room: " .. #rooms + 1 .. " succeded")
+  if debug then 
+    print("room: " .. #rooms + 1 .. " validate succeded " .. tostring(result))
+  else
+    print("room: " .. #rooms + 1 .. " validate failed " .. tostring(result))    
+  end
+  
   return result
 end
 
@@ -287,80 +291,63 @@ function writeLevelToFile()
   file:close(outputFile)
 end
 
+debug = false
 function run()
   
   -- create first room
-  local testRoom = createRandomRoom()
-  while not validateRoom(testRoom) do
-    testRoom = createRandomRoom()
+  local firstRoom = createRandomRoom()
+  while not validateRoom(firstRoom) do
+    firstRoom = createRandomRoom()
   end
   
-  table.insert(rooms, testRoom)
+  table.insert(rooms, firstRoom)
   
-  local tries = 100
   local nextRoom
   local testCorridor
-  --while not validateRoom(testRoom2) do
-  while tries > 0 do
+
+  while true do
     local currentRoom = rooms[#rooms]
-    local remainingWallTiles = {}
+
     
     local roomWallTiles = getRoomWallTiles(currentRoom)
-    local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
-    currentRoom.doorTile, roomWallTiles = selectRandomWallTileForCorridor(currentRoom, roomWallTiles, corridorLength)
-    testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
     
-    nextRoom = createNewRoomAtCorridorDest(testCorridor)
-    if not validateRoom(nextRoom) then
-      print("fail " .. tries)
-      tries = tries - 1
-    else
-      table.insert(corridors, testCorridor)
-      table.insert(rooms, nextRoom)
-      tries = 100
-    --  do the same for corridor
+    while #roomWallTiles > 0 do --why this shit code run even tho false!? lua pls explain, i am confusion
+      local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
+      currentRoom.doorTile, roomWallTiles = selectRandomWallTileForCorridor(currentRoom, roomWallTiles, corridorLength)
+      testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
+      
+      nextRoom = createNewRoomAtCorridorDest(testCorridor)
+      debug = true
+      local val = validateRoom(nextRoom)
+      debug = false
+      if not val then
+        print("validate returned: " .. tostring(val) .. " wall tiles remaning: " .. #roomWallTiles)
+
+      else
+        table.insert(corridors, testCorridor)
+        table.insert(rooms, nextRoom)
+        break
+      end
     end
-    --tries = tries - 1
-    if #rooms >= 9 then break end
-    if tries == 0 then break end
+
+    if #rooms >= 9 then break end -- max rooms reached, add random rooms outside path
+    if #roomWallTiles == 0 then break end -- did not reach max rooms, redo from start
   end
   
---  local corridorLength2 = math.random(minCorridorLength, maxCorridorLenght)
---  testRoom2.doorTile = selectRandomWallTileForCorridor(testRoom2, corridorLength2)
---  local testCorridor2 = createCorridor(testRoom2.doorTile.x, testRoom2.doorTile.y, corridorLength2, testRoom2.doorTile.direction)
-  
-  --table.insert(rooms, testRoom2)
-  --table.insert(corridors, testCorridor2)
-  
---  tries = 100
---  local testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
---  while not validateRoom(testRoom3) do
---    testRoom3 = createNewRoomAtCorridorDest(testCorridor2)
---    tries = tries - 1
---    if tries == 0 then break end
---  end
-  
---  table.insert(rooms, testRoom3)
-  
   fillLevel()
-  --wallTile = selectRandomWallTile(rooms[1])
+
   cutRooms()
   cutCorridors()
 
   writeLevelToFile()
 
-  -- print level
+  --print level
   for y = 1, level.h do
     for x = 1, level.w+1 do
       io.write(level[y][x])
     end
   end
 
-  print(rooms[1].x .. " " .. rooms[1].y .. " " .. rooms[1].w .. " " .. rooms[1].h)
 end
 
 run()
---test = {1,2,3,4,5,6}
---print(test)
---print(table.unpack(test,2,5))
-
