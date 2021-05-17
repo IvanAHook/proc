@@ -1,27 +1,26 @@
-level = {}
+local level = {}
 level.w = 128
 level.h = 64
---level.rooms = ""
 
-up = 1
-down = 2
-left = 3
-right = 4
+local up = 1
+local down = 2
+local left = 3
+local right = 4
 
-maxPathLength = 9
-minRoomSize = 6
-maxRoomSize = 16
+local maxPathLength = 9
+local minRoomSize = 6
+local maxRoomSize = 16
 
-minCorridorLength = 4
-maxCorridorLenght = 8
+local minCorridorLength = 4
+local maxCorridorLenght = 8
 
-extraRoomChance = 0.5
+local extraRoomChance = 0.5
 
-mainRooms = {}
-mainCorridors = {}
+level.mainRooms = {}
+level.mainCorridors = {}
 
-extraRooms = {}
-extraCorridors = {}
+level.extraRooms = {}
+level.extraCorridors = {}
 
 math.randomseed(os.time())
 
@@ -202,39 +201,33 @@ function validateRoom(room)
   end
   
   local result = true
-  for i = 1, #mainRooms do
-    if roomOverlaps(room, mainRooms[i]) then
+  for i = 1, #level.mainRooms do
+    if roomOverlaps(room, level.mainRooms[i]) then
       print("room overlaped with room: " .. i)
       result = false
       break
     end
   end
-  for i = 1, #extraRooms do
-    if roomOverlaps(room, extraRooms[i]) then
+  for i = 1, #level.extraRooms do
+    if roomOverlaps(room, level.extraRooms[i]) then
       print("room overlaped with extra room: " .. i)
       result = false
       break
     end
   end
-  for i = 1, #mainCorridors do
-    if roomOverlapsCorridor(room, mainCorridors[i]) then
+  for i = 1, #level.mainCorridors do
+    if roomOverlapsCorridor(room, level.mainCorridors[i]) then
       print("room overlaped with corridor: " .. i)
       result = false
       break
     end
   end
-  for i = 1, #extraCorridors do
-    if roomOverlapsCorridor(room, extraCorridors[i]) then
+  for i = 1, #level.extraCorridors do
+    if roomOverlapsCorridor(room, level.extraCorridors[i]) then
       print("room overlaped with extra corridor: " .. i)
       result = false
       break
     end
-  end
-  
-  if debug then 
-    print("room: " .. #mainRooms + 1 .. " validate succeded " .. tostring(result))
-  else
-    print("room: " .. #mainRooms + 1 .. " validate failed " .. tostring(result))    
   end
   
   return result
@@ -250,7 +243,7 @@ function cutRooms(rooms) -- pass room table
           tile = "#"
         else
           tile = " "
-          if rooms == mainRooms then
+          if rooms == level.mainRooms then
             --tile = "."
             if i == 1 then tile = "." end
             if i == maxPathLength then tile = "," end
@@ -315,18 +308,86 @@ function fillLevel()
 end
 
 function writeLevelToFile() 
-  local file = assert(io.open("level.txt", "w"), "Could not open file.")
-  file:write("--level" .. "\n")
-  for y = 1, level.h do
-    for x = 1, level.w+1 do
-      file:write(level[y][x])
-    end
+  local file = assert(io.open("level.lua", "w"), "Could not open file.")
+  --file:write("--level" .. "\n")
+  file:write("local level = {}\n")
+  file:write("level.w = " .. level.w .. "\n" ..
+              "level.h = " .. level.h .. "\n")
+  file:write("mainRooms = {\n")
+  for i = 1, #level.mainRooms do
+    local room = level.mainRooms[i]
+    file:write("{ x = " .. room.x .. ", y = " .. room.y .. ", w = " .. room.w .. ", h = " .. room.h .. " },\n")
   end
+  file:write("}\n")
+  file:write("extraRooms = {\n")
+  for i = 1, #level.extraRooms do
+    local room = level.extraRooms[i]
+    file:write("{ x = " .. room.x .. ", y = " .. room.y .. ", w = " .. room.w .. ", h = " .. room.h .. ", connectedTo = " .. room.connectedTo .. " },\n")
+  end
+  file:write("}\n")
+  file:write("mainCorridors = {\n")
+  for i = 1, #level.mainCorridors do
+    local corridor = level.mainCorridors[i]
+    --file:write("{ x = " .. room.x .. ", y = " .. room.y .. ", w = " .. room.w .. ", h = " .. room.h .. ", connectedTo = " .. room.connectedTo .. " },\n")
+  end
+  file:write("}\n")
+  --for y = 1, level.h do
+  --  for x = 1, level.w+1 do
+  --    file:write(level[y][x])
+  --  end
+  --end
+  file:write("return level")
   file:flush()
   file:close(outputFile)
 end
 
-debug = false
+function printTable(t, f)
+
+   local function printTableHelper(obj, cnt)
+
+      local cnt = cnt or 0
+
+      if type(obj) == "table" then
+
+         io.write("\n", string.rep("\t", cnt), "{\n")
+         cnt = cnt + 1
+
+         for k,v in pairs(obj) do
+
+            if type(k) == "string" then
+               io.write(string.rep("\t",cnt), '["'..k..'"]', ' = ')
+            end
+
+            if type(k) == "number" then
+               io.write(string.rep("\t",cnt), "["..k.."]", " = ")
+            end
+
+            printTableHelper(v, cnt)
+            io.write(",\n")
+         end
+
+         cnt = cnt-1
+         io.write(string.rep("\t", cnt), "}")
+
+      elseif type(obj) == "string" then
+         io.write(string.format("%q", obj))
+
+      else
+         io.write(tostring(obj))
+      end 
+   end
+
+   if f == nil then
+      printTableHelper(t)
+   else
+      io.output(f)
+      io.write("return")
+      printTableHelper(t)
+      io.output(io.stdout)
+   end
+ end
+ 
+
 function run()
   ::start::
   -- create first room
@@ -335,13 +396,13 @@ function run()
     firstRoom = createRandomRoom()
   end
   
-  table.insert(mainRooms, firstRoom)
+  table.insert(level.mainRooms, firstRoom)
   
   local nextRoom
   local testCorridor
 
   while true do
-    local currentRoom = mainRooms[#mainRooms]
+    local currentRoom = level.mainRooms[#level.mainRooms]
 
     local roomWallTiles = getRoomWallTiles(currentRoom)
     
@@ -358,45 +419,47 @@ function run()
         print("validate returned: " .. tostring(val) .. " wall tiles remaning: " .. #roomWallTiles)
 
       else
-        table.insert(mainCorridors, testCorridor)
-        table.insert(mainRooms, nextRoom)
+        table.insert(level.mainCorridors, testCorridor)
+        table.insert(level.mainRooms, nextRoom)
         break
       end
     end
 
-    if #mainRooms >= maxPathLength then break end -- max rooms reached, add random rooms outside path
-    if #roomWallTiles == 0 and #mainRooms < maxPathLength then 
-      mainRooms = {}
-      mainCorridors = {}
+    if #level.mainRooms >= maxPathLength then break end -- max rooms reached, add random rooms outside path
+    if #roomWallTiles == 0 and #level.mainRooms < maxPathLength then 
+      level.mainRooms = {}
+      level.mainCorridors = {}
       goto start 
     end -- did not reach max rooms, redo from start
   end
   
-  for i = 1, #mainRooms-1 do --no extra rooms on final room
+  for i = 1, #level.mainRooms-1 do --no extra rooms on final room
     if math.random() < extraRoomChance then
-      local currentRoom = mainRooms[i]
-      local roomWallTiles = getRoomWallTiles(currentRoom)        
+      local roomWallTiles = getRoomWallTiles(level.mainRooms[i])        
       while #roomWallTiles > 0 do
         local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
-        currentRoom.doorTile, roomWallTiles = selectRandomWallTileForCorridor(currentRoom, roomWallTiles, corridorLength)
-        testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
+        level.mainRooms[i].doorTile, roomWallTiles = selectRandomWallTileForCorridor(level.mainRooms[i], roomWallTiles, corridorLength)
+        testCorridor = createCorridor(level.mainRooms[i].doorTile.x, level.mainRooms[i].doorTile.y, corridorLength, level.mainRooms[i].doorTile.direction)
+        
+        print(level.mainRooms[i].doorTile.x .. " AHA")
         
         nextRoom = createNewRoomAtCorridorDest(testCorridor)
+        nextRoom.connectedTo = i
         local val = validateRoom(nextRoom)
         if not val then
           print("could not creat extra room for room: " .. i)
         else
-          table.insert(extraCorridors, testCorridor)
-          table.insert(extraRooms, nextRoom)
+          table.insert(level.extraCorridors, testCorridor)
+          table.insert(level.extraRooms, nextRoom)
           --break
         end
       end
     end
   end
   
-  for i = 1, #extraRooms-1 do --no extra rooms on final room
+  for i = 1, #level.extraRooms-1 do --no extra rooms on final room
     if math.random() < extraRoomChance then
-      local currentRoom = extraRooms[i]
+      local currentRoom = level.extraRooms[i]
       local roomWallTiles = getRoomWallTiles(currentRoom)        
       while #roomWallTiles > 0 do
         local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
@@ -404,34 +467,36 @@ function run()
         testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
         
         nextRoom = createNewRoomAtCorridorDest(testCorridor)
+        nextRoom.connectedTo = currentRoom.connectedTo
         local val = validateRoom(nextRoom)
         if not val then
           print("could not creat extra room for room: " .. i)
         else
-          table.insert(extraCorridors, testCorridor)
-          table.insert(extraRooms, nextRoom)
+          table.insert(level.extraCorridors, testCorridor)
+          table.insert(level.extraRooms, nextRoom)
           --break
         end
       end
     end
   end
     
-  fillLevel()
+  --fillLevel()
 
-  cutRooms(mainRooms)
-  cutCorridors(mainCorridors)
-  cutRooms(extraRooms)
-  cutCorridors(extraCorridors)
+  cutRooms(level.mainRooms)
+  cutCorridors(level.mainCorridors)
+  cutRooms(level.extraRooms)
+  cutCorridors(level.extraCorridors)
 
 
-  writeLevelToFile()
+  --writeLevelToFile()
+  printTable(level, "level.lua")
 
   --print level
-  for y = 1, level.h do
-    for x = 1, level.w+1 do
-      io.write(level[y][x])
-    end
-  end
+  --for y = 1, level.h do
+  --  for x = 1, level.w+1 do
+  --    io.write(level[y][x])
+  --  end
+  --end
 
 end
 
