@@ -1,4 +1,4 @@
-local levelConfig = {}
+return levelConfig = {}
 levelConfig.w = 128
 levelConfig.h = 64
 
@@ -10,5 +10,3 @@ levelConfig.minCorridorLength = 4
 levelConfig.maxCorridorLenght = 8
 
 levelConfig.extraRoomChance = 0.5
-
-return levelConfig

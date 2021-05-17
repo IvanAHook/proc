@@ -32,7 +32,7 @@ function cutRooms(rooms) -- pass room table
         if y == room.y or y == room.y + room.h or x == room.x or x == room.x + room.w then -- the walls of the room, needs to be done nicer!
           tile = wallTile
         else
-          tile = " "
+          tile = floorTile
           if rooms == level.mainRooms then
             --tile = "."
             if i == 1 then tile = "." end
@@ -42,7 +42,12 @@ function cutRooms(rooms) -- pass room table
         
         if x == room.doorTile.x and y == room.doorTile.y then
           tile = floorTile
-          --tile = i
+        end
+        
+        for c = 1, #room.contents do
+          if room.x + room.contents[c].x == x and room.y + room.contents[c].y == y then
+            tile = room.contents[c].tile
+          end
         end
         
         if levelGrid[y] ~= nil and levelGrid[y][x] ~= nil then -- FIX SO THIS NOT NEEDED
@@ -62,8 +67,6 @@ function cutCorridors(corridors) -- pass corridor table
     if corridor.direction == up or corridor.direction == down then
       for y = corridor.y, corridor.y + corridor.length do
         tile = floorTile
-        --if y == corridor.start.y then tile = "+"        --debug
-        --elseif y == corridor.dest.y then tile = "-" end --debug
         
         if levelGrid[y] ~= nil and levelGrid[y][corridor.x] ~= nil then -- FIX SO THIS NOT NEEDED
           levelGrid[y][corridor.x] = tile
@@ -99,5 +102,3 @@ cutCorridors(level.mainCorridors)
 cutRooms(level.extraRooms)
 cutCorridors(level.extraCorridors)
 printLevel()
-
---printLevel()

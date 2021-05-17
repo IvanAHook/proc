@@ -1,3 +1,6 @@
+require("printTable")
+require("prefabs")
+
 local level = {}
 level.w = 128
 level.h = 64
@@ -8,7 +11,7 @@ local left = 3
 local right = 4
 
 local maxPathLength = 9
-local minRoomSize = 6
+local minRoomSize = 8
 local maxRoomSize = 16
 
 local minCorridorLength = 4
@@ -31,6 +34,8 @@ function createRoom(x, y, w, h)
   room.w = w - 1 -- this cant be right
   room.h = h - 1
   room.doorTile = {}
+  
+  room.contents = {}
   
   return room
 end
@@ -72,6 +77,7 @@ function createCorridor(x, y, length, direction)
   corridor.y = y
   corridor.length = length
   corridor.direction = direction
+  corridor.contents = {}
   
   return corridor
 end
@@ -233,169 +239,17 @@ function validateRoom(room)
   return result
 end
 
-function cutRooms(rooms) -- pass room table
-  for i = 1, #rooms do
-    local room = rooms[i]
-    for y = room.y, room.y + room.h do
-      for x = room.x, room.x + room.w do
-        local tile
-        if y == room.y or y == room.y + room.h or x == room.x or x == room.x + room.w then -- the walls of the room, needs to be done nicer!
-          tile = "#"
-        else
-          tile = " "
-          if rooms == level.mainRooms then
-            --tile = "."
-            if i == 1 then tile = "." end
-            if i == maxPathLength then tile = "," end
-          end
-        end
-        
-        if x == room.doorTile.x and y == room.doorTile.y then
-          tile = "."
-          --tile = i
-        end
-        
-        if level[y] ~= nil and level[y][x] ~= nil then -- FIX SO THIS NOT NEEDED
-          level[y][x] = tile
-        end
-      
-      end
-    end
-  end
-end
-
-function cutCorridors(corridors) -- pass corridor table
-  for i = 1, #corridors do
-    local corridor = corridors[i]
-    local tile
-
-    if corridor.direction == up or corridor.direction == down then
-      for y = corridor.y, corridor.y + corridor.length do
-        tile = "."
-        if y == corridor.start.y then tile = "+"        --debug
-        elseif y == corridor.dest.y then tile = "-" end --debug
-        
-        if level[y] ~= nil and level[y][corridor.x] ~= nil then -- FIX SO THIS NOT NEEDED
-          level[y][corridor.x] = tile
-        end
-      end
-    end
-    if corridor.direction == left or corridor.direction == right then
-      for x = corridor.x, corridor.x + corridor.length do
-        tile = "."
-        if x == corridor.start.x then tile = "+"        --debug
-        elseif x == corridor.dest.x then tile = "-" end --debug
-        
-        if level[corridor.y] ~= nil and level[corridor.y][x] ~= nil then -- FIX SO THIS NOT NEEDED
-          level[corridor.y][x] = tile
-        end
-      end
-    end    
-    
-  end
-end
-
-function fillLevel()
-  for y = 1, level.h do
-    level[y] = {}
-    for x = 1, level.w do
-      tile = "#"
-      level[y][x] = tile
-    end
-    
-    level[y][level.w+1] = "\n"
-  end
-end
-
-function writeLevelToFile() 
-  local file = assert(io.open("level.lua", "w"), "Could not open file.")
-  --file:write("--level" .. "\n")
-  file:write("local level = {}\n")
-  file:write("level.w = " .. level.w .. "\n" ..
-              "level.h = " .. level.h .. "\n")
-  file:write("mainRooms = {\n")
-  for i = 1, #level.mainRooms do
-    local room = level.mainRooms[i]
-    file:write("{ x = " .. room.x .. ", y = " .. room.y .. ", w = " .. room.w .. ", h = " .. room.h .. " },\n")
-  end
-  file:write("}\n")
-  file:write("extraRooms = {\n")
-  for i = 1, #level.extraRooms do
-    local room = level.extraRooms[i]
-    file:write("{ x = " .. room.x .. ", y = " .. room.y .. ", w = " .. room.w .. ", h = " .. room.h .. ", connectedTo = " .. room.connectedTo .. " },\n")
-  end
-  file:write("}\n")
-  file:write("mainCorridors = {\n")
-  for i = 1, #level.mainCorridors do
-    local corridor = level.mainCorridors[i]
-    --file:write("{ x = " .. room.x .. ", y = " .. room.y .. ", w = " .. room.w .. ", h = " .. room.h .. ", connectedTo = " .. room.connectedTo .. " },\n")
-  end
-  file:write("}\n")
-  --for y = 1, level.h do
-  --  for x = 1, level.w+1 do
-  --    file:write(level[y][x])
-  --  end
-  --end
-  file:write("return level")
-  file:flush()
-  file:close(outputFile)
-end
-
-function printTable(t, f)
-
-   local function printTableHelper(obj, cnt)
-
-      local cnt = cnt or 0
-
-      if type(obj) == "table" then
-
-         io.write("\n", string.rep("\t", cnt), "{\n")
-         cnt = cnt + 1
-
-         for k,v in pairs(obj) do
-
-            if type(k) == "string" then
-               io.write(string.rep("\t",cnt), '["'..k..'"]', ' = ')
-            end
-
-            if type(k) == "number" then
-               io.write(string.rep("\t",cnt), "["..k.."]", " = ")
-            end
-
-            printTableHelper(v, cnt)
-            io.write(",\n")
-         end
-
-         cnt = cnt-1
-         io.write(string.rep("\t", cnt), "}")
-
-      elseif type(obj) == "string" then
-         io.write(string.format("%q", obj))
-
-      else
-         io.write(tostring(obj))
-      end 
-   end
-
-   if f == nil then
-      printTableHelper(t)
-   else
-      io.output(f)
-      io.write("return")
-      printTableHelper(t)
-      io.output(io.stdout)
-   end
- end
- 
-
-function run()
+function run(config)
   ::start::
   -- create first room
   local firstRoom = createRandomRoom()
   while not validateRoom(firstRoom) do
     firstRoom = createRandomRoom()
   end
-  
+  local boss = prefabs.boss
+  boss.x = math.random(1, firstRoom.w-1)
+  boss.y = math.random(1, firstRoom.h-1)
+  table.insert(firstRoom.contents, prefabs.boss)
   table.insert(level.mainRooms, firstRoom)
   
   local nextRoom
@@ -417,8 +271,8 @@ function run()
       debug = false
       if not val then
         print("validate returned: " .. tostring(val) .. " wall tiles remaning: " .. #roomWallTiles)
-
       else
+
         table.insert(level.mainCorridors, testCorridor)
         table.insert(level.mainRooms, nextRoom)
         break
@@ -479,25 +333,9 @@ function run()
       end
     end
   end
-    
-  --fillLevel()
-
-  cutRooms(level.mainRooms)
-  cutCorridors(level.mainCorridors)
-  cutRooms(level.extraRooms)
-  cutCorridors(level.extraCorridors)
-
-
-  --writeLevelToFile()
+  
   printTable(level, "level.lua")
-
-  --print level
-  --for y = 1, level.h do
-  --  for x = 1, level.w+1 do
-  --    io.write(level[y][x])
-  --  end
-  --end
-
 end
 
-run()
+run(arg[1])
+
