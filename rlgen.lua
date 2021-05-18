@@ -1,23 +1,27 @@
 require("printTable")
 require("prefabs")
 
-local level = {}
-level.w = 128
-level.h = 64
-
 local up = 1
 local down = 2
 local left = 3
 local right = 4
 
-local maxPathLength = 9
-local minRoomSize = 8
-local maxRoomSize = 16
 
-local minCorridorLength = 4
-local maxCorridorLenght = 8
+level = {}
+level.params = {}
 
-local extraRoomChance = 0.5
+-- params used if no levelConfig file is provided
+level.params.w = 128
+level.params.h = 64
+
+level.params.maxPathLength = 9
+level.params.minRoomSize = 8
+level.params.maxRoomSize = 16
+
+level.params.minCorridorLength = 4
+level.params.maxCorridorLenght = 8
+
+level.params.extraRoomChance = 0.5
 
 level.mainRooms = {}
 level.mainCorridors = {}
@@ -31,7 +35,7 @@ function createRoom(x, y, w, h)
   local room = {}
   room.x = x
   room.y = y
-  room.w = w - 1 -- this cant be right
+  room.w = w - 1
   room.h = h - 1
   room.doorTile = {}
   
@@ -41,15 +45,15 @@ function createRoom(x, y, w, h)
 end
 
 function createRandomRoom()
-  x = math.random(1, level.w)
-  y = math.random(1, level.h)
-  w = math.random(minRoomSize, maxRoomSize)
-  h = math.random(minRoomSize, maxRoomSize)
+  x = math.random(1, level.params.w)
+  y = math.random(1, level.params.h)
+  w = math.random(level.params.minRoomSize, level.params.maxRoomSize)
+  h = math.random(level.params.minRoomSize, level.params.maxRoomSize)
   
   return createRoom(x, y, w, h)
 end
 
-function createCorridor(x, y, length, direction)
+function createCorridor(x, y, length, direction) -- TODO make some generic function to determine corridor direction etc, dont want to require x, start.x, dest.x etc
   local corridor = {}
   corridor.start = {}
   corridor.dest = {}
@@ -80,13 +84,6 @@ function createCorridor(x, y, length, direction)
   corridor.contents = {}
   
   return corridor
-end
-
-function roomCenter(room) 
-  local center = {}
-  center.x = room.x + room.width / 2
-  center.y = room.y + room.height / 2
-  return center
 end
 
 function roomOverlaps(room1, room2)
@@ -131,210 +128,157 @@ function selectRandomWallTileForCorridor(room, wallTiles, corridorLength)
   local tiles = wallTiles
   local considerTile
   local result = false
-  
-  while not result do
-    --check if there is room in this direction
-    --this thing has a bug, but what is it?
-    
-    tileIndex = math.random(1, #tiles)
-    considerTile = table.remove(tiles, tileIndex)
-    
-    --considerTile = tiles[math.random(1, #tiles)]
-    
-    local direction -- 1 = up, 2 = down, 3 = left, 4 = right
-    if considerTile.y == room.y then direction = up end
-    if considerTile.y == room.y + room.h then direction = down end
-    if considerTile.x == room.x then direction = left end
-    if considerTile.x == room.x + room.w then direction = right end
 
-    considerTile.direction = direction
-    
-    --create a test room to check for collision where we want to put the corridor, MAKE THIS GENERIC FOR USE WITH ROOMS AS WELL AS CORRIDORS
-    local testArea
-    if direction == up then
-      testArea = createRoom(considerTile.x-1, considerTile.y-corridorLength, 3, corridorLength)
-    elseif direction == down then
-      testArea = createRoom(considerTile.x-1, considerTile.y, 3, corridorLength)
-    elseif direction == left then
-      testArea = createRoom(considerTile.x-corridorLength, considerTile.y-1, 3, corridorLength)
-    elseif direction == right then
-      testArea = createRoom(considerTile.x, considerTile.y-1, 3, corridorLength)
-    end
-    
-    result = true--validateRoom(testArea)
-    --if validateRoom(testArea) then result = true end    
-    
-    if #tiles == 0 then -- TODO make this return nil and then we handle it!
-      print("Found no tile, why?")
-      considerTile.x = 1
-      considerTile.y = 1
-      break 
-    end
+  tileIndex = math.random(1, #tiles)
+  considerTile = table.remove(tiles, tileIndex)
+  
+  local direction
+  if considerTile.y == room.y then direction = up end
+  if considerTile.y == room.y + room.h then direction = down end
+  if considerTile.x == room.x then direction = left end
+  if considerTile.x == room.x + room.w then direction = right end
+
+  considerTile.direction = direction
+
+  if #tiles == 0 then
+    return nil
   end
   
   return considerTile, tiles
 end
 
 function createNewRoomAtCorridorDest(corridor)
-  local r = {}
-  r.w = math.random(minRoomSize, maxRoomSize)
-  r.h = math.random(minRoomSize, maxRoomSize)
-  r.door = {}
+  local room = {}
+  room.w = math.random(level.params.minRoomSize, level.params.maxRoomSize)
+  room.h = math.random(level.params.minRoomSize, level.params.maxRoomSize)
+  room.door = {}
   
   if corridor.direction == up or corridor.direction == down then
-    local min = math.ceil(corridor.dest.x - r.w + 2) -- consider walls, this should be fixed, maybe dont consider walls. instead add padding in collision detection
-    local max = math.floor(corridor.dest.x - 1)
+    local min = math.ceil(corridor.dest.x - room.w + 2) -- +2 to consider walls
+    local max = math.floor(corridor.dest.x - 1) -- -1 because destination will be in room wall
 
-    r.door.x = math.random(min, max)
-    if corridor.direction == up then r.door.y = corridor.dest.y - r.h + 1 -- same wall problem here
-    else r.door.y = corridor.dest.y end
+    room.door.x = math.random(min, max)
+    if corridor.direction == up then room.door.y = corridor.dest.y - room.h + 1
+    else room.door.y = corridor.dest.y end
   elseif corridor.direction == left or corridor.direction == right then
-    local min = math.ceil(corridor.dest.y - r.h + 2)
+    local min = math.ceil(corridor.dest.y - room.h + 2)
     local max = math.floor(corridor.dest.y - 1)
 
-    r.door.y = math.random(min, max)
-    if corridor.direction == left then r.door.x = corridor.dest.x - r.w + 1 -- same wall problem here
-    else r.door.x = corridor.dest.x end
+    room.door.y = math.random(min, max)
+    if corridor.direction == left then room.door.x = corridor.dest.x - room.w + 1
+    else room.door.x = corridor.dest.x end
   end
   
-  return createRoom(r.door.x, r.door.y, r.w, r.h)
+  return createRoom(room.door.x, room.door.y, room.w, room.h)
 end
 
 function validateRoom(room)
-  if room.y + room.h >= level.h then return false
-  elseif room.x + room.w >= level.w then return false
+  -- is room outside level?
+  if room.y + room.h >= level.params.h then return false
+  elseif room.x + room.w >= level.params.w then return false
   elseif room.y <= 1 or room.x <= 1 then return false
   end
   
+  -- does room overlap with another room or corridor?
   local result = true
   for i = 1, #level.mainRooms do
-    if roomOverlaps(room, level.mainRooms[i]) then
-      print("room overlaped with room: " .. i)
-      result = false
-      break
-    end
+    if roomOverlaps(room, level.mainRooms[i]) then result = false break end
   end
   for i = 1, #level.extraRooms do
-    if roomOverlaps(room, level.extraRooms[i]) then
-      print("room overlaped with extra room: " .. i)
-      result = false
-      break
-    end
+    if roomOverlaps(room, level.extraRooms[i]) then result = false break end
   end
   for i = 1, #level.mainCorridors do
-    if roomOverlapsCorridor(room, level.mainCorridors[i]) then
-      print("room overlaped with corridor: " .. i)
-      result = false
-      break
-    end
+    if roomOverlapsCorridor(room, level.mainCorridors[i]) then result = false break end
   end
   for i = 1, #level.extraCorridors do
-    if roomOverlapsCorridor(room, level.extraCorridors[i]) then
-      print("room overlaped with extra corridor: " .. i)
-      result = false
-      break
-    end
+    if roomOverlapsCorridor(room, level.extraCorridors[i]) then result = false break end
   end
   
   return result
 end
 
-function run(config)
+function run(conf)
+  if conf ~= nil then
+    require(conf)
+    level.params = levelConfig.params
+  end
+  
+  local tries = 100
   ::start::
+  
   -- create first room
   local firstRoom = createRandomRoom()
   while not validateRoom(firstRoom) do
     firstRoom = createRandomRoom()
   end
-  local boss = prefabs.boss
-  boss.x = math.random(1, firstRoom.w-1)
-  boss.y = math.random(1, firstRoom.h-1)
-  table.insert(firstRoom.contents, prefabs.boss)
   table.insert(level.mainRooms, firstRoom)
   
   local nextRoom
   local testCorridor
 
-  while true do
-    local currentRoom = level.mainRooms[#level.mainRooms]
+  if tries == 0 then
+    print("could not create level from provided parameters!")
+    return
+  end
 
+  while tries > 0 do -- add the main path of the level
+    local currentRoom = level.mainRooms[#level.mainRooms]
     local roomWallTiles = getRoomWallTiles(currentRoom)
     
-    while #roomWallTiles > 0 do --why this shit code run even tho false!? lua pls explain, i am confusion
-      local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
+    while #roomWallTiles > 0 do -- generate next room
+      local corridorLength = math.random(level.params.minCorridorLength, level.params.maxCorridorLenght)
       currentRoom.doorTile, roomWallTiles = selectRandomWallTileForCorridor(currentRoom, roomWallTiles, corridorLength)
-      testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
       
+      if currentRoom.doorTile == nil then
+        break
+      end
+      
+      testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
       nextRoom = createNewRoomAtCorridorDest(testCorridor)
-      debug = true
       local val = validateRoom(nextRoom)
-      debug = false
-      if not val then
-        print("validate returned: " .. tostring(val) .. " wall tiles remaning: " .. #roomWallTiles)
-      else
-
+      if val then
         table.insert(level.mainCorridors, testCorridor)
         table.insert(level.mainRooms, nextRoom)
         break
       end
     end
 
-    if #level.mainRooms >= maxPathLength then break end -- max rooms reached, add random rooms outside path
-    if #roomWallTiles == 0 and #level.mainRooms < maxPathLength then 
+    if #level.mainRooms >= level.params.maxPathLength then break end -- max rooms reached, add random rooms outside path
+    if roomWallTiles == nil or (#roomWallTiles == 0 and #level.mainRooms < level.params.maxPathLength) then 
       level.mainRooms = {}
       level.mainCorridors = {}
+      tries = tries - 1
       goto start 
     end -- did not reach max rooms, redo from start
   end
   
-  for i = 1, #level.mainRooms-1 do --no extra rooms on final room
-    if math.random() < extraRoomChance then
+  for i = 1, #level.mainRooms-1 do --add extra rooms outside the main path, no extra rooms on final room for now
+    if math.random() < level.params.extraRoomChance then
       local roomWallTiles = getRoomWallTiles(level.mainRooms[i])        
       while #roomWallTiles > 0 do
-        local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
+        local corridorLength = math.random(level.params.minCorridorLength, level.params.maxCorridorLenght)
         level.mainRooms[i].doorTile, roomWallTiles = selectRandomWallTileForCorridor(level.mainRooms[i], roomWallTiles, corridorLength)
-        testCorridor = createCorridor(level.mainRooms[i].doorTile.x, level.mainRooms[i].doorTile.y, corridorLength, level.mainRooms[i].doorTile.direction)
         
-        print(level.mainRooms[i].doorTile.x .. " AHA")
+        if level.mainRooms[i].doorTile == nil then
+          break
+        end
+        
+        testCorridor = createCorridor(level.mainRooms[i].doorTile.x, level.mainRooms[i].doorTile.y, corridorLength, level.mainRooms[i].doorTile.direction)
         
         nextRoom = createNewRoomAtCorridorDest(testCorridor)
         nextRoom.connectedTo = i
         local val = validateRoom(nextRoom)
-        if not val then
-          print("could not creat extra room for room: " .. i)
-        else
+        if val then
           table.insert(level.extraCorridors, testCorridor)
           table.insert(level.extraRooms, nextRoom)
-          --break
         end
       end
     end
   end
   
-  for i = 1, #level.extraRooms-1 do --no extra rooms on final room
-    if math.random() < extraRoomChance then
-      local currentRoom = level.extraRooms[i]
-      local roomWallTiles = getRoomWallTiles(currentRoom)        
-      while #roomWallTiles > 0 do
-        local corridorLength = math.random(minCorridorLength, maxCorridorLenght)
-        currentRoom.doorTile, roomWallTiles = selectRandomWallTileForCorridor(currentRoom, roomWallTiles, corridorLength)
-        testCorridor = createCorridor(currentRoom.doorTile.x, currentRoom.doorTile.y, corridorLength, currentRoom.doorTile.direction)
-        
-        nextRoom = createNewRoomAtCorridorDest(testCorridor)
-        nextRoom.connectedTo = currentRoom.connectedTo
-        local val = validateRoom(nextRoom)
-        if not val then
-          print("could not creat extra room for room: " .. i)
-        else
-          table.insert(level.extraCorridors, testCorridor)
-          table.insert(level.extraRooms, nextRoom)
-          --break
-        end
-      end
-    end
-  end
+  if levelConfig.postProcess ~= nil then levelConfig.postProcess(level) end
   
-  printTable(level, "level.lua")
+  printTable(level, "level.lua") -- TODO when support is added for printing levels from file input, let the user choose output file
 end
 
 run(arg[1])

@@ -1,8 +1,8 @@
 
-local level = require("level")
+local level = require("level") -- TODO add support for providing level file as input
 
 local wallTile = "#"
-local floorTile = " "
+local floorTile = "."
 
 local levelGrid = {}
 
@@ -12,35 +12,26 @@ local left = 3
 local right = 4
 local maxPathLength = 9
 
-function fillLevel()
-  for y = 1, level.h do
+function fillLevel() -- fill levelGrid with wall tiles
+  for y = 1, level.params.h do
     levelGrid[y] = {}
-    for x = 1, level.w do
+    for x = 1, level.params.w do
       levelGrid[y][x] = wallTile
     end
     
-    levelGrid[y][level.w+1] = "\n"
+    levelGrid[y][level.params.w+1] = "\n"
   end
 end
 
-function cutRooms(rooms) -- pass room table
+function cutRooms(rooms) -- cut out rooms in levelGrid
   for i = 1, #rooms do
     local room = rooms[i]
     for y = room.y, room.y + room.h do
       for x = room.x, room.x + room.w do
         local tile
-        if y == room.y or y == room.y + room.h or x == room.x or x == room.x + room.w then -- the walls of the room, needs to be done nicer!
+        if y == room.y or y == room.y + room.h or x == room.x or x == room.x + room.w then
           tile = wallTile
         else
-          tile = floorTile
-          if rooms == level.mainRooms then
-            --tile = "."
-            if i == 1 then tile = "." end
-            if i == maxPathLength then tile = "," end
-          end
-        end
-        
-        if x == room.doorTile.x and y == room.doorTile.y then
           tile = floorTile
         end
         
@@ -50,16 +41,13 @@ function cutRooms(rooms) -- pass room table
           end
         end
         
-        if levelGrid[y] ~= nil and levelGrid[y][x] ~= nil then -- FIX SO THIS NOT NEEDED
           levelGrid[y][x] = tile
-        end
-      
       end
     end
   end
 end
 
-function cutCorridors(corridors) -- pass corridor table
+function cutCorridors(corridors) -- cut out corridor in levelGrid
   for i = 1, #corridors do
     local corridor = corridors[i]
     local tile
@@ -68,29 +56,35 @@ function cutCorridors(corridors) -- pass corridor table
       for y = corridor.y, corridor.y + corridor.length do
         tile = floorTile
         
-        if levelGrid[y] ~= nil and levelGrid[y][corridor.x] ~= nil then -- FIX SO THIS NOT NEEDED
-          levelGrid[y][corridor.x] = tile
+        for c = 1, #corridor.contents do
+          if corridor.y + corridor.contents[c].y == y then
+            tile = corridor.contents[c].tile
+          end
         end
+        
+          levelGrid[y][corridor.x] = tile
       end
     end
     if corridor.direction == left or corridor.direction == right then
       for x = corridor.x, corridor.x + corridor.length do
         tile = floorTile
-        --if x == corridor.start.x then tile = "+"        --debug
-        --elseif x == corridor.dest.x then tile = "-" end --debug
         
-        if levelGrid[corridor.y] ~= nil and levelGrid[corridor.y][x] ~= nil then -- FIX SO THIS NOT NEEDED
-          levelGrid[corridor.y][x] = tile
+        for c = 1, #corridor.contents do
+          if corridor.x + corridor.contents[c].x == x then
+            tile = corridor.contents[c].tile
+          end
         end
+        
+          levelGrid[corridor.y][x] = tile
       end
     end    
     
   end
 end
 
-function printLevel() 
-  for y = 1, level.h do
-    for x = 1, level.w+1 do
+function printLevel()
+  for y = 1, level.params.h do
+    for x = 1, level.params.w+1 do
       io.write(levelGrid[y][x])
     end
   end  
