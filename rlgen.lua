@@ -1,5 +1,4 @@
 require("printTable")
-require("prefabs")
 
 local up = 1
 local down = 2
@@ -45,10 +44,10 @@ function createRoom(x, y, w, h)
 end
 
 function createRandomRoom()
-  x = math.random(1, level.params.w)
-  y = math.random(1, level.params.h)
-  w = math.random(level.params.minRoomSize, level.params.maxRoomSize)
-  h = math.random(level.params.minRoomSize, level.params.maxRoomSize)
+  local x = math.random(1, level.params.w)
+  local y = math.random(1, level.params.h)
+  local w = math.random(level.params.minRoomSize, level.params.maxRoomSize)
+  local h = math.random(level.params.minRoomSize, level.params.maxRoomSize)
   
   return createRoom(x, y, w, h)
 end
@@ -87,7 +86,7 @@ function createCorridor(x, y, length, direction) -- TODO make some generic funct
 end
 
 function roomOverlaps(room1, room2)
-  return room1.x <= room2.x+room2.w and room1.x+room1.w >= room2.x and room1.y <= room2.y+room2.h and room1.y+room1.h >= room2.y
+  return room1.x <= room2.x+room2.w and room1.x+room1.w >= room2.x and room1.y <= room2.y+room2.h and room1.y+room1.h >= room2.y -- <= makes bug, should be only < i think
 end
 
 function roomOverlapsCorridor(room, corridor)
@@ -154,8 +153,8 @@ function createNewRoomAtCorridorDest(corridor)
   room.door = {}
   
   if corridor.direction == up or corridor.direction == down then
-    local min = math.ceil(corridor.dest.x - room.w + 2) -- +2 to consider walls
-    local max = math.floor(corridor.dest.x - 1) -- -1 because destination will be in room wall
+    local min = math.ceil(corridor.dest.x - room.w + 2)
+    local max = math.floor(corridor.dest.x - 1)
 
     room.door.x = math.random(min, max)
     if corridor.direction == up then room.door.y = corridor.dest.y - room.h + 1
@@ -205,6 +204,8 @@ function run(conf)
   
   local tries = 100
   ::start::
+  level.mainRooms = {}
+  level.mainCorridors = {}
   
   -- create first room
   local firstRoom = createRandomRoom()
@@ -245,8 +246,6 @@ function run(conf)
 
     if #level.mainRooms >= level.params.maxPathLength then break end -- max rooms reached, add random rooms outside path
     if roomWallTiles == nil or (#roomWallTiles == 0 and #level.mainRooms < level.params.maxPathLength) then 
-      level.mainRooms = {}
-      level.mainCorridors = {}
       tries = tries - 1
       goto start 
     end -- did not reach max rooms, redo from start
@@ -276,7 +275,7 @@ function run(conf)
     end
   end
   
-  if levelConfig.postProcess ~= nil then levelConfig.postProcess(level) end
+  if levelConfig ~= nil and levelConfig.postProcess ~= nil then levelConfig.postProcess(level) end
   
   printTable(level, "level.lua") -- TODO when support is added for printing levels from file input, let the user choose output file
 end

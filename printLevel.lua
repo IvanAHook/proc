@@ -1,6 +1,7 @@
-
+require("printTable")
 local level = require("level") -- TODO add support for providing level file as input
 
+local emptyTile = " "
 local wallTile = "#"
 local floorTile = "."
 
@@ -16,7 +17,7 @@ function fillLevel() -- fill levelGrid with wall tiles
   for y = 1, level.params.h do
     levelGrid[y] = {}
     for x = 1, level.params.w do
-      levelGrid[y][x] = wallTile
+      levelGrid[y][x] = emptyTile
     end
     
     levelGrid[y][level.params.w+1] = "\n"
@@ -54,7 +55,6 @@ function cutCorridors(corridors) -- cut out corridor in levelGrid
 
     if corridor.direction == up or corridor.direction == down then
       for y = corridor.y, corridor.y + corridor.length do
-        tile = floorTile
         
         for c = 1, #corridor.contents do
           if corridor.y + corridor.contents[c].y == y then
@@ -62,12 +62,13 @@ function cutCorridors(corridors) -- cut out corridor in levelGrid
           end
         end
         
-          levelGrid[y][corridor.x] = tile
+          levelGrid[y][corridor.x-1] = wallTile
+          levelGrid[y][corridor.x] = floorTile
+          levelGrid[y][corridor.x+1] = wallTile
       end
     end
     if corridor.direction == left or corridor.direction == right then
       for x = corridor.x, corridor.x + corridor.length do
-        tile = floorTile
         
         for c = 1, #corridor.contents do
           if corridor.x + corridor.contents[c].x == x then
@@ -75,7 +76,9 @@ function cutCorridors(corridors) -- cut out corridor in levelGrid
           end
         end
         
-          levelGrid[corridor.y][x] = tile
+          levelGrid[corridor.y-1][x] = wallTile
+          levelGrid[corridor.y][x] = floorTile
+          levelGrid[corridor.y+1][x] = wallTile
       end
     end    
     
@@ -87,7 +90,8 @@ function printLevel()
     for x = 1, level.params.w+1 do
       io.write(levelGrid[y][x])
     end
-  end  
+  end
+  printTable(levelGrid, "levelGrid.lua") 
 end
 
 fillLevel()

@@ -20,6 +20,7 @@ levelConfig.postProcess = function(levelContents) -- after rooms and corridors a
   local spawn = prefabs.spawn(math.floor(levelContents.mainRooms[1].w /2), math.floor(levelContents.mainRooms[1].h /2)) -- add spawn point
   table.insert(levelContents.mainRooms[1].contents, spawn)
   
+  --[[
   for i = 1, #levelContents.mainRooms do
     local rand = math.random()
     if rand > 0.75 then  -- every room on main path has 75% chance to spawn boss
@@ -47,7 +48,8 @@ levelConfig.postProcess = function(levelContents) -- after rooms and corridors a
       table.insert(levelContents.mainCorridors[i].contents, door)
       numDoors = numDoors + 1
     end
-  end  
+  end
+  ]]--
   
 end
 
